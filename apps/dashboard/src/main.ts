@@ -126,7 +126,7 @@ const emptyStats: DashboardStats = {
                   @if (row.thadouSentence && row.englishSentence) {
                     <span>{{ row.englishSentence }}</span>
                   }
-                  <small>{{ row.modifiedBy }}</small>
+                  <small>Last modified by {{ row.modifiedBy }}</small>
                 </div>
                 <div class="review-badges" aria-label="Review status">
                   <span [class.checked]="row.reviews.first">1st</span>
