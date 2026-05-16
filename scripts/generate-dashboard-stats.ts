@@ -151,7 +151,12 @@ function buildAssignments(rows: NocoDbRecord[]): AssignmentUserSummary[] {
   const grouped = new Map<string, AssignmentItem[]>();
 
   for (const row of rows) {
-    const assignee = readFirstString(row, ['Assigned To', 'Assignee', 'User', 'Reviewer', 'Name', 'Email']) || 'Unassigned';
+    const assignee = readFirstString(row, ['Assigned To', 'Assignee', 'User', 'Reviewer', 'Name', 'Email']);
+
+    if (!assignee || assignee.toLowerCase() === 'null') {
+      continue;
+    }
+
     const item: AssignmentItem = {
       id: readString(row['Id']),
       assignedSentences: readFirstString(row, ['Assigned Sentences', 'Assigned Sentence', 'Sentence Range']),
