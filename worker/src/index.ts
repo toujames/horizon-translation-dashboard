@@ -105,7 +105,7 @@ function buildRecentModifiedRows(rows: NocoDbRecord[], env: Env): RecentModified
   return rows
     .map((row) => ({
       row,
-      modifiedAt: readString(row['Last modified time']) || readString(row['UpdatedAt']) || readString(row['Created time'])
+      modifiedAt: readString(row['Last modified time']) || readString(row['UpdatedAt'])
     }))
     .filter((entry): entry is { row: NocoDbRecord; modifiedAt: string } => Boolean(entry.modifiedAt))
     .sort((a, b) => Date.parse(b.modifiedAt) - Date.parse(a.modifiedAt))
@@ -114,7 +114,7 @@ function buildRecentModifiedRows(rows: NocoDbRecord[], env: Env): RecentModified
       id: readString(row['Id']),
       thadouSentence: readString(row['Thadou Sentence']),
       englishSentence: readString(row['English Sentence']),
-      modifiedBy: readString(row['Last modified by']) || 'No modifier recorded',
+      modifiedBy: readFirstString(row, ['Last modified by', 'Last Modified By', 'Updated by', 'UpdatedBy']) || 'No modifier recorded',
       modifiedAt,
       reviews: {
         first: isChecked(row[env.NOCODB_FIRST_REVIEW_FIELD]),
@@ -213,6 +213,32 @@ function readString(value: unknown): string {
 
   if (typeof value === 'number') {
     return String(value);
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => readString(item)).filter(Boolean).join(', ');
+  }
+
+  if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    return (
+      readString(record['displayValue']) ||
+      readString(record['name']) ||
+      readString(record['email']) ||
+      readString(record['title'])
+    );
+  }
+
+  return '';
+}
+
+function readFirstString(row: NocoDbRecord, keys: string[]): string {
+  for (const key of keys) {
+    const value = readString(row[key]);
+
+    if (value) {
+      return value;
+    }
   }
 
   return '';
