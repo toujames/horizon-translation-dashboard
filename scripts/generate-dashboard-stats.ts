@@ -151,6 +151,10 @@ function buildAssignments(rows: NocoDbRecord[]): AssignmentUserSummary[] {
   const grouped = new Map<string, AssignmentItem[]>();
 
   for (const row of rows) {
+    if (isChecked(row['Done']) || isChecked(row['done'])) {
+      continue;
+    }
+
     const assignee = readFirstString(row, ['Assigned To', 'Assignee', 'User', 'Reviewer', 'Name', 'Email']);
 
     if (!assignee || assignee.toLowerCase() === 'null') {
@@ -173,7 +177,7 @@ function buildAssignments(rows: NocoDbRecord[]): AssignmentUserSummary[] {
     .map(([assignee, assignments]) => ({
       assignee,
       total: assignments.length,
-      assignments: assignments.slice(0, 12)
+      assignments: assignments.slice(0, 5)
     }))
     .sort((a, b) => b.total - a.total || a.assignee.localeCompare(b.assignee));
 }

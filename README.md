@@ -41,6 +41,7 @@ The workflow in `.github/workflows/pages.yml`:
 - filters with `where=(Source,eq,gemini)`
 - handles limit/offset pagination
 - fetches hardcoded assignment table `mhub16ztknqh5x6`
+- hides assignments where `Done` is checked and shows the first 5 not-done assignments per user
 - includes the 20 most recently modified Gemini rows with sentence text, modifier, timestamp, and review status
 - writes fallback summarized data to `dashboard-stats.json`
 - writes `runtime-config.json` with `DASHBOARD_STATS_URL` when that secret is configured
