@@ -36,6 +36,11 @@ body {
   margin-bottom: 28px;
 }
 
+.dashboard-header > div:first-child {
+  min-width: 0;
+  flex: 1;
+}
+
 .eyebrow,
 .metric-label,
 .metric-footnote,
@@ -62,9 +67,9 @@ p {
 }
 
 h1 {
-  max-width: 920px;
+  max-width: none;
   margin-bottom: 0;
-  font-size: clamp(2.1rem, 5vw, 5.5rem);
+  font-size: clamp(2.1rem, 4.4vw, 4.75rem);
   line-height: 0.96;
   letter-spacing: 0;
 }
