@@ -1,0 +1,68 @@
+name: Build and Deploy Dashboard
+
+on:
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate summarized dashboard data
+        run: npm run stats:generate
+        env:
+          NOCODB_BASE_URL: ${{ secrets.NOCODB_BASE_URL }}
+          NOCODB_API_TOKEN: ${{ secrets.NOCODB_API_TOKEN }}
+          NOCODB_TABLE_ID: ${{ secrets.NOCODB_TABLE_ID }}
+          NOCODB_SOURCE_FIELD: ${{ secrets.NOCODB_SOURCE_FIELD }}
+          NOCODB_SOURCE_VALUE: ${{ secrets.NOCODB_SOURCE_VALUE }}
+          NOCODB_FIRST_REVIEW_FIELD: ${{ secrets.NOCODB_FIRST_REVIEW_FIELD }}
+          NOCODB_SECOND_REVIEW_FIELD: ${{ secrets.NOCODB_SECOND_REVIEW_FIELD }}
+          NOCODB_THIRD_REVIEW_FIELD: ${{ secrets.NOCODB_THIRD_REVIEW_FIELD }}
+
+      - name: Build Angular dashboard
+        run: npx ng build --configuration production --base-href /horizon-translation-dashboard/
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: dist/dashboard/browser
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

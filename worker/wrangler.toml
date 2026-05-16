@@ -1,0 +1,13 @@
+name = "translation-review-dashboard-api"
+main = "src/index.ts"
+compatibility_date = "2026-05-16"
+
+[vars]
+NOCODB_BASE_URL = "https://nocodb.horizon.kukiinpi.us"
+NOCODB_TABLE_ID = "mf28g2tn6zzdo3e"
+NOCODB_SOURCE_FIELD = "Source"
+NOCODB_SOURCE_VALUE = "gemini"
+NOCODB_FIRST_REVIEW_FIELD = "1st Review"
+NOCODB_SECOND_REVIEW_FIELD = "2nd Review"
+NOCODB_THIRD_REVIEW_FIELD = "3rd Review"
+NOCODB_PAGE_SIZE = "1000"
