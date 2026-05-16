@@ -63,10 +63,7 @@ const emptyStats: DashboardStats = {
           <span>Auto-refresh</span>
           <strong>60s</strong>
           @if (lastUpdated()) {
-            <small>Data {{ lastUpdated() | date:'shortTime' }}</small>
-          }
-          @if (lastChecked()) {
-            <small>Checked {{ lastChecked() | date:'shortTime' }}</small>
+            <small>Updated {{ lastUpdated() | date:'shortTime' }}</small>
           }
         </div>
       </header>
@@ -154,7 +151,6 @@ class AppComponent {
   protected readonly loading = signal(false);
   protected readonly errorMessage = signal('');
   protected readonly lastUpdated = signal<Date | null>(null);
-  protected readonly lastChecked = signal<Date | null>(null);
   protected readonly hasRecentModifiedRows = computed(() => this.stats().recentModifiedRows.length > 0);
 
   constructor() {
@@ -182,7 +178,6 @@ class AppComponent {
         )
       )
       .subscribe((stats) => {
-        this.lastChecked.set(new Date());
         if (stats) {
           this.stats.set(stats);
           this.lastUpdated.set(stats.generatedAt ? new Date(stats.generatedAt) : null);
