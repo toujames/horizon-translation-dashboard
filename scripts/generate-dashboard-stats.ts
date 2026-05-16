@@ -37,7 +37,7 @@ interface DashboardStats {
 
 const outputPath = resolve('apps/dashboard/public/dashboard-stats.json');
 const pageSize = 1000;
-const contributorFields = ['Created by', 'Last modified by'];
+const contributorFields = ['Last modified by'];
 
 loadLocalEnvFiles();
 

@@ -101,7 +101,7 @@ h1 {
 
 .summary-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(180px, 1fr));
+  grid-template-columns: minmax(330px, 1.35fr) repeat(4, minmax(180px, 1fr));
   gap: 18px;
 }
 
@@ -136,9 +136,14 @@ h1 {
 .metric-value {
   display: block;
   margin: 22px 0;
-  font-size: clamp(3rem, 6vw, 6.5rem);
+  font-size: 5rem;
   line-height: 0.9;
   letter-spacing: 0;
+  white-space: nowrap;
+}
+
+.metric-card.primary .metric-value {
+  font-size: 4.8rem;
 }
 
 .metric-footnote {
@@ -249,6 +254,10 @@ h1 {
     grid-column: 1 / -1;
   }
 
+  .metric-card.primary .metric-value {
+    font-size: 5rem;
+  }
+
   .leaderboard {
     grid-template-columns: 1fr;
   }
@@ -272,6 +281,11 @@ h1 {
 
   .metric-card {
     min-height: 190px;
+  }
+
+  .metric-value,
+  .metric-card.primary .metric-value {
+    font-size: 4rem;
   }
 
   .row-progress {

@@ -39,7 +39,7 @@ The workflow in `.github/workflows/pages.yml`:
 - fetches all NoCoDB records from `/api/v2/tables/{tableId}/records`
 - filters with `where=(Source,eq,gemini)`
 - handles limit/offset pagination
-- counts contributors from hardcoded `Created by` and `Last modified by` fields
+- counts contributors from the hardcoded `Last modified by` field
 - writes only summarized data to `dashboard-stats.json`
 - builds with `ng build --configuration production --base-href /horizon-translation-dashboard/`
 - deploys `dist/dashboard/browser` to GitHub Pages

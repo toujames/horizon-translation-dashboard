@@ -104,7 +104,7 @@ const emptyStats: DashboardStats = {
         <article class="metric-card">
           <span class="metric-label">Contributors</span>
           <strong class="metric-value">{{ stats().uniqueContributorCount | number }}</strong>
-          <span class="metric-footnote">Unique created or modified users</span>
+          <span class="metric-footnote">Unique users who modified rows</span>
         </article>
       </section>
 

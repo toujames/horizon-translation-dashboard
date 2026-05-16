@@ -48,7 +48,7 @@ interface DashboardStats {
 }
 
 const DEFAULT_PAGE_SIZE = 1000;
-const CONTRIBUTOR_FIELDS = ['Created by', 'Last modified by'];
+const CONTRIBUTOR_FIELDS = ['Last modified by'];
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
