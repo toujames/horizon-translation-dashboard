@@ -41,6 +41,21 @@ interface RecentModifiedRow {
   };
 }
 
+interface AssignmentUserSummary {
+  assignee: string;
+  total: number;
+  assignments: AssignmentItem[];
+}
+
+interface AssignmentItem {
+  id: string;
+  assignedSentences: string;
+  thadouSentence: string;
+  englishSentence: string;
+  status: string;
+  dueDate: string;
+}
+
 interface DashboardStats {
   generatedAt: string;
   source: string;
@@ -51,9 +66,11 @@ interface DashboardStats {
     third: ReviewStat;
   };
   recentModifiedRows: RecentModifiedRow[];
+  assignments: AssignmentUserSummary[];
 }
 
 const DEFAULT_PAGE_SIZE = 1000;
+const ASSIGNMENTS_TABLE_ID = 'mhub16ztknqh5x6';
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -81,7 +98,8 @@ export default {
 };
 
 async function buildDashboardStats(env: Env): Promise<DashboardStats> {
-  const rows = await fetchAllGeminiRows(env, env.NOCODB_SOURCE_FIELD, env.NOCODB_SOURCE_VALUE);
+  const rows = await fetchAllRows(env, env.NOCODB_TABLE_ID, `(${env.NOCODB_SOURCE_FIELD},eq,${env.NOCODB_SOURCE_VALUE})`);
+  const assignmentRows = await fetchAllRows(env, ASSIGNMENTS_TABLE_ID);
 
   const totalSentences = rows.length;
   const firstChecked = rows.filter((row) => isChecked(row[env.NOCODB_FIRST_REVIEW_FIELD])).length;
@@ -97,8 +115,40 @@ async function buildDashboardStats(env: Env): Promise<DashboardStats> {
       second: { checked: secondChecked, percentage: percentage(secondChecked, totalSentences) },
       third: { checked: thirdChecked, percentage: percentage(thirdChecked, totalSentences) }
     },
-    recentModifiedRows: buildRecentModifiedRows(rows, env)
+    recentModifiedRows: buildRecentModifiedRows(rows, env),
+    assignments: buildAssignments(assignmentRows)
   };
+}
+
+function buildAssignments(rows: NocoDbRecord[]): AssignmentUserSummary[] {
+  const grouped = new Map<string, AssignmentItem[]>();
+
+  for (const row of rows) {
+    const assignee = readFirstString(row, ['Assigned To', 'Assignee', 'User', 'Reviewer', 'Name', 'Email']);
+
+    if (!assignee || assignee.toLowerCase() === 'null') {
+      continue;
+    }
+
+    const item: AssignmentItem = {
+      id: readString(row['Id']),
+      assignedSentences: readFirstString(row, ['Assigned Sentences', 'Assigned Sentence', 'Sentence Range']),
+      thadouSentence: readFirstString(row, ['Thadou Sentence', 'Sentence']),
+      englishSentence: readFirstString(row, ['English Sentence', 'Translation']),
+      status: readFirstString(row, ['Status', 'Progress', 'State']) || 'Assigned',
+      dueDate: readFirstString(row, ['Due Date', 'Due', 'Deadline'])
+    };
+
+    grouped.set(assignee, [...(grouped.get(assignee) || []), item]);
+  }
+
+  return [...grouped.entries()]
+    .map(([assignee, assignments]) => ({
+      assignee,
+      total: assignments.length,
+      assignments: assignments.slice(0, 12)
+    }))
+    .sort((a, b) => b.total - a.total || a.assignee.localeCompare(b.assignee));
 }
 
 function buildRecentModifiedRows(rows: NocoDbRecord[], env: Env): RecentModifiedRow[] {
@@ -124,13 +174,13 @@ function buildRecentModifiedRows(rows: NocoDbRecord[], env: Env): RecentModified
     }));
 }
 
-async function fetchAllGeminiRows(env: Env, sourceField: string, sourceValue: string): Promise<NocoDbRecord[]> {
+async function fetchAllRows(env: Env, tableId: string, where?: string): Promise<NocoDbRecord[]> {
   const rows: NocoDbRecord[] = [];
   const pageSize = readPageSize(env.NOCODB_PAGE_SIZE);
   let offset = 0;
 
   while (true) {
-    const page = await fetchNocoDbPage(env, sourceField, sourceValue, offset, pageSize);
+    const page = await fetchNocoDbPage(env, tableId, offset, pageSize, where);
     const list = Array.isArray(page.list) ? page.list : [];
     rows.push(...list);
 
@@ -146,16 +196,19 @@ async function fetchAllGeminiRows(env: Env, sourceField: string, sourceValue: st
 
 async function fetchNocoDbPage(
   env: Env,
-  sourceField: string,
-  sourceValue: string,
+  tableId: string,
   offset: number,
-  limit: number
+  limit: number,
+  where?: string
 ): Promise<NocoDbListResponse> {
   const apiUrl = env.NOCODB_BASE_URL.replace(/\/+$/, '');
-  const url = new URL(`/api/v2/tables/${env.NOCODB_TABLE_ID}/records`, apiUrl);
+  const url = new URL(`/api/v2/tables/${tableId}/records`, apiUrl);
   url.searchParams.set('limit', String(limit));
   url.searchParams.set('offset', String(offset));
-  url.searchParams.set('where', `(${sourceField},eq,${sourceValue})`);
+
+  if (where) {
+    url.searchParams.set('where', where);
+  }
 
   const response = await fetch(url, {
     headers: {

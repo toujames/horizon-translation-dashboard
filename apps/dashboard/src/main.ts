@@ -52,6 +52,10 @@ interface DashboardStats {
   assignments: AssignmentUserSummary[];
 }
 
+interface RuntimeConfig {
+  statsUrl?: string;
+}
+
 const emptyStats: DashboardStats = {
   generatedAt: '',
   source: 'gemini',
@@ -205,10 +209,13 @@ class AppComponent {
   protected readonly loading = signal(false);
   protected readonly errorMessage = signal('');
   protected readonly lastUpdated = signal<Date | null>(null);
+  protected readonly statsUrl = signal(environment.statsUrl);
   protected readonly hasAssignments = computed(() => this.stats().assignments.length > 0);
   protected readonly hasRecentModifiedRows = computed(() => this.stats().recentModifiedRows.length > 0);
 
   constructor() {
+    void this.loadRuntimeConfig();
+
     interval(environment.refreshMs)
       .pipe(
         startWith(0),
@@ -217,7 +224,7 @@ class AppComponent {
           this.errorMessage.set('');
         }),
         switchMap(() =>
-          this.http.get<DashboardStats>(environment.statsUrl, {
+          this.http.get<DashboardStats>(this.statsUrl(), {
             headers: {
               'cache-control': 'no-cache'
             },
@@ -239,6 +246,20 @@ class AppComponent {
         }
         this.loading.set(false);
       });
+  }
+
+  private async loadRuntimeConfig(): Promise<void> {
+    try {
+      const config = await fetch(`runtime-config.json?t=${Date.now()}`, {
+        cache: 'no-store'
+      }).then((response) => (response.ok ? response.json() as Promise<RuntimeConfig> : null));
+
+      if (config?.statsUrl) {
+        this.statsUrl.set(config.statsUrl);
+      }
+    } catch {
+      this.statsUrl.set(environment.statsUrl);
+    }
   }
 }
 
