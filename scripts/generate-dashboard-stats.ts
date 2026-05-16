@@ -18,6 +18,8 @@ interface ReviewStat {
 
 interface RecentModifiedRow {
   id: string;
+  thadouSentence: string;
+  englishSentence: string;
   modifiedBy: string;
   modifiedAt: string;
   reviews: {
@@ -133,8 +135,10 @@ function buildRecentModifiedRows(rows: NocoDbRecord[]): RecentModifiedRow[] {
     .sort((a, b) => Date.parse(b.modifiedAt) - Date.parse(a.modifiedAt))
     .slice(0, 20)
     .map(({ row, modifiedAt }) => ({
-      id: readString(row['Id']) || 'Unknown',
-      modifiedBy: readString(row['Last modified by']) || 'Unknown',
+      id: readString(row['Id']),
+      thadouSentence: readString(row['Thadou Sentence']),
+      englishSentence: readString(row['English Sentence']),
+      modifiedBy: readString(row['Last modified by']) || 'No modifier recorded',
       modifiedAt,
       reviews: {
         first: isChecked(row[config.firstReviewField]),

@@ -2,7 +2,7 @@
 
 Read-only GitHub Pages dashboard for tracking Gemini-sourced translation sentence review progress.
 
-Phase 1 uses GitHub Actions as the backend/proxy layer: the workflow reads NoCoDB with repository secrets, computes aggregate summary data, writes `apps/dashboard/public/dashboard-stats.json`, builds Angular, and deploys the static site to GitHub Pages. The Angular app never receives the NoCoDB API token and never reads raw sentence records.
+Phase 1 uses GitHub Actions as the backend/proxy layer: the workflow reads NoCoDB with repository secrets, computes dashboard data, writes `apps/dashboard/public/dashboard-stats.json`, builds Angular, and deploys the static site to GitHub Pages. The Angular app never receives the NoCoDB API token.
 
 ## Project Structure
 
@@ -39,7 +39,7 @@ The workflow in `.github/workflows/pages.yml`:
 - fetches all NoCoDB records from `/api/v2/tables/{tableId}/records`
 - filters with `where=(Source,eq,gemini)`
 - handles limit/offset pagination
-- includes the 20 most recently modified Gemini rows by row ID, modifier, timestamp, and review status
+- includes the 20 most recently modified Gemini rows with sentence text, modifier, timestamp, and review status
 - writes only summarized data to `dashboard-stats.json`
 - builds with `ng build --configuration production --base-href /horizon-translation-dashboard/`
 - deploys `dist/dashboard/browser` to GitHub Pages
@@ -89,6 +89,8 @@ npm run dashboard:build:pages
   "recentModifiedRows": [
     {
       "id": "123",
+      "thadouSentence": "Example Thadou sentence",
+      "englishSentence": "Example English sentence",
       "modifiedBy": "reviewer@example.com",
       "modifiedAt": "2026-05-16T20:00:00.000Z",
       "reviews": { "first": true, "second": false, "third": false }
@@ -97,7 +99,7 @@ npm run dashboard:build:pages
 }
 ```
 
-No raw sentence text, notes, or API tokens are written to the JSON file.
+Notes and API tokens are not written to the JSON file.
 
 ## Optional Cloudflare Worker
 

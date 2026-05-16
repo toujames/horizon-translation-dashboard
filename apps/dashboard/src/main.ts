@@ -13,6 +13,8 @@ interface ReviewStat {
 
 interface RecentModifiedRow {
   id: string;
+  thadouSentence: string;
+  englishSentence: string;
   modifiedBy: string;
   modifiedAt: string;
   reviews: {
@@ -119,9 +121,12 @@ const emptyStats: DashboardStats = {
           <div class="activity-list">
             @for (row of stats().recentModifiedRows; track row.id + row.modifiedAt) {
               <article class="activity-row">
-                <div>
-                  <strong>Sentence #{{ row.id }}</strong>
-                  <span>{{ row.modifiedBy }}</span>
+                <div class="sentence-text">
+                  <strong>{{ row.thadouSentence || row.englishSentence || 'Sentence text unavailable' }}</strong>
+                  @if (row.thadouSentence && row.englishSentence) {
+                    <span>{{ row.englishSentence }}</span>
+                  }
+                  <small>{{ row.modifiedBy }}</small>
                 </div>
                 <div class="review-badges" aria-label="Review status">
                   <span [class.checked]="row.reviews.first">1st</span>
