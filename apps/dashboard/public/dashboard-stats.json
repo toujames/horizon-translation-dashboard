@@ -1,27 +1,20 @@
 {
-  "generatedAt": "2026-05-16T21:13:35.636Z",
+  "generatedAt": "",
   "source": "gemini",
-  "totalSentences": 17718,
-  "uniqueContributorCount": 1,
+  "totalSentences": 0,
   "reviews": {
     "first": {
-      "checked": 744,
-      "percentage": 4.2
+      "checked": 0,
+      "percentage": 0
     },
     "second": {
-      "checked": 101,
-      "percentage": 0.6
+      "checked": 0,
+      "percentage": 0
     },
     "third": {
-      "checked": 81,
-      "percentage": 0.5
+      "checked": 0,
+      "percentage": 0
     }
   },
-  "contributors": [
-    {
-      "name": "james@touthang.info",
-      "count": 17718,
-      "percentage": 100
-    }
-  ]
+  "recentModifiedRows": []
 }

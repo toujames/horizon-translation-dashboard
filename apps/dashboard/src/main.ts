@@ -11,36 +11,39 @@ interface ReviewStat {
   percentage: number;
 }
 
-interface ContributorStat {
-  name: string;
-  count: number;
-  percentage: number;
+interface RecentModifiedRow {
+  id: string;
+  modifiedBy: string;
+  modifiedAt: string;
+  reviews: {
+    first: boolean;
+    second: boolean;
+    third: boolean;
+  };
 }
 
 interface DashboardStats {
   generatedAt: string;
   source: string;
   totalSentences: number;
-  uniqueContributorCount: number;
   reviews: {
     first: ReviewStat;
     second: ReviewStat;
     third: ReviewStat;
   };
-  contributors: ContributorStat[];
+  recentModifiedRows: RecentModifiedRow[];
 }
 
 const emptyStats: DashboardStats = {
   generatedAt: '',
   source: 'gemini',
   totalSentences: 0,
-  uniqueContributorCount: 0,
   reviews: {
     first: { checked: 0, percentage: 0 },
     second: { checked: 0, percentage: 0 },
     third: { checked: 0, percentage: 0 }
   },
-  contributors: []
+  recentModifiedRows: []
 };
 
 @Component({
@@ -101,33 +104,28 @@ const emptyStats: DashboardStats = {
           <span class="metric-footnote">{{ stats().reviews.third.percentage | number:'1.0-1' }}% checked</span>
         </article>
 
-        <article class="metric-card">
-          <span class="metric-label">Contributors</span>
-          <strong class="metric-value">{{ stats().uniqueContributorCount | number }}</strong>
-          <span class="metric-footnote">Unique users who modified rows</span>
-        </article>
       </section>
 
-      @if (hasContributors()) {
-        <section class="leaderboard-section">
+      @if (hasRecentModifiedRows()) {
+        <section class="activity-section">
           <div class="section-heading">
-            <h2>Contributor leaderboard</h2>
-            <span>{{ stats().contributors.length | number }} shown</span>
+            <h2>Recently modified</h2>
+            <span>{{ stats().recentModifiedRows.length | number }} shown</span>
           </div>
 
-          <div class="leaderboard">
-            @for (contributor of stats().contributors; track contributor.name) {
-              <article class="leaderboard-row">
+          <div class="activity-list">
+            @for (row of stats().recentModifiedRows; track row.id + row.modifiedAt) {
+              <article class="activity-row">
                 <div>
-                  <strong>{{ contributor.name }}</strong>
-                  <span>{{ contributor.count | number }} sentences</span>
+                  <strong>Sentence #{{ row.id }}</strong>
+                  <span>{{ row.modifiedBy }}</span>
                 </div>
-                <div class="row-progress">
-                  <div class="progress-track" aria-hidden="true">
-                    <span [style.width.%]="contributor.percentage"></span>
-                  </div>
-                  <b>{{ contributor.percentage | number:'1.0-1' }}%</b>
+                <div class="review-badges" aria-label="Review status">
+                  <span [class.checked]="row.reviews.first">1st</span>
+                  <span [class.checked]="row.reviews.second">2nd</span>
+                  <span [class.checked]="row.reviews.third">3rd</span>
                 </div>
+                <time [dateTime]="row.modifiedAt">{{ row.modifiedAt | date:'short' }}</time>
               </article>
             }
           </div>
@@ -148,7 +146,7 @@ class AppComponent {
   protected readonly loading = signal(false);
   protected readonly errorMessage = signal('');
   protected readonly lastUpdated = signal<Date | null>(null);
-  protected readonly hasContributors = computed(() => this.stats().contributors.length > 0);
+  protected readonly hasRecentModifiedRows = computed(() => this.stats().recentModifiedRows.length > 0);
 
   constructor() {
     interval(environment.refreshMs)

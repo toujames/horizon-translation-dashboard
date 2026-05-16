@@ -41,7 +41,8 @@ body {
 .metric-footnote,
 .refresh-panel,
 .section-heading span,
-.leaderboard-row span {
+.activity-row span,
+.activity-row time {
   color: var(--muted);
 }
 
@@ -101,7 +102,7 @@ h1 {
 
 .summary-grid {
   display: grid;
-  grid-template-columns: minmax(330px, 1.35fr) repeat(4, minmax(180px, 1fr));
+  grid-template-columns: minmax(340px, 1.25fr) repeat(3, minmax(200px, 1fr));
   gap: 18px;
 }
 
@@ -166,7 +167,7 @@ h1 {
   background: linear-gradient(90deg, var(--accent), #48b88f);
 }
 
-.leaderboard-section {
+.activity-section {
   margin-top: 28px;
 }
 
@@ -182,15 +183,15 @@ h1 {
   font-size: clamp(1.5rem, 2.5vw, 2.4rem);
 }
 
-.leaderboard {
+.activity-list {
   display: grid;
   grid-template-columns: repeat(2, minmax(260px, 1fr));
   gap: 12px;
 }
 
-.leaderboard-row {
+.activity-row {
   display: grid;
-  grid-template-columns: minmax(140px, 1fr) minmax(180px, 0.9fr);
+  grid-template-columns: minmax(180px, 1fr) auto minmax(150px, 0.45fr);
   align-items: center;
   gap: 20px;
   padding: 18px;
@@ -199,25 +200,45 @@ h1 {
   background: var(--surface);
 }
 
-.leaderboard-row strong,
-.leaderboard-row span {
+.activity-row strong,
+.activity-row span,
+.activity-row time {
   display: block;
 }
 
-.leaderboard-row strong {
+.activity-row strong {
   overflow-wrap: anywhere;
   font-size: 1.05rem;
 }
 
-.row-progress {
-  display: grid;
-  grid-template-columns: 1fr 58px;
-  align-items: center;
-  gap: 12px;
+.activity-row time {
+  text-align: right;
+  font-size: 0.95rem;
+  font-weight: 700;
 }
 
-.row-progress b {
-  text-align: right;
+.review-badges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.review-badges span {
+  min-width: 42px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #eef4f1;
+  color: var(--muted);
+  text-align: center;
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.review-badges span.checked {
+  border-color: #6bc3a4;
+  background: #dff5eb;
+  color: var(--accent-strong);
 }
 
 .loading-bar {
@@ -258,7 +279,7 @@ h1 {
     font-size: 5rem;
   }
 
-  .leaderboard {
+  .activity-list {
     grid-template-columns: 1fr;
   }
 }
@@ -266,7 +287,7 @@ h1 {
 @media (max-width: 720px) {
   .dashboard-header,
   .section-heading,
-  .leaderboard-row {
+  .activity-row {
     display: block;
   }
 
@@ -288,7 +309,12 @@ h1 {
     font-size: 4rem;
   }
 
-  .row-progress {
+  .review-badges {
     margin-top: 14px;
+  }
+
+  .activity-row time {
+    margin-top: 12px;
+    text-align: left;
   }
 }

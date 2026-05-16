@@ -16,28 +16,31 @@ interface ReviewStat {
   percentage: number;
 }
 
-interface ContributorStat {
-  name: string;
-  count: number;
-  percentage: number;
+interface RecentModifiedRow {
+  id: string;
+  modifiedBy: string;
+  modifiedAt: string;
+  reviews: {
+    first: boolean;
+    second: boolean;
+    third: boolean;
+  };
 }
 
 interface DashboardStats {
   generatedAt: string;
   source: string;
   totalSentences: number;
-  uniqueContributorCount: number;
   reviews: {
     first: ReviewStat;
     second: ReviewStat;
     third: ReviewStat;
   };
-  contributors: ContributorStat[];
+  recentModifiedRows: RecentModifiedRow[];
 }
 
 const outputPath = resolve('apps/dashboard/public/dashboard-stats.json');
 const pageSize = 1000;
-const contributorFields = ['Last modified by'];
 
 loadLocalEnvFiles();
 
@@ -106,42 +109,39 @@ function buildStats(rows: NocoDbRecord[]): DashboardStats {
   const firstChecked = rows.filter((row) => isChecked(row[config.firstReviewField])).length;
   const secondChecked = rows.filter((row) => isChecked(row[config.secondReviewField])).length;
   const thirdChecked = rows.filter((row) => isChecked(row[config.thirdReviewField])).length;
-  const contributorCounts = new Map<string, number>();
-
-  for (const row of rows) {
-    const rowContributors = new Set<string>();
-
-    for (const field of contributorFields) {
-      for (const name of normalizeContributorValue(row[field])) {
-        rowContributors.add(name);
-      }
-    }
-
-    for (const name of rowContributors) {
-      contributorCounts.set(name, (contributorCounts.get(name) || 0) + 1);
-    }
-  }
-
-  const contributors = [...contributorCounts.entries()]
-    .map(([name, count]) => ({
-      name,
-      count,
-      percentage: percentage(count, totalSentences)
-    }))
-    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
 
   return {
     generatedAt: new Date().toISOString(),
     source: config.sourceValue,
     totalSentences,
-    uniqueContributorCount: contributorCounts.size,
     reviews: {
       first: { checked: firstChecked, percentage: percentage(firstChecked, totalSentences) },
       second: { checked: secondChecked, percentage: percentage(secondChecked, totalSentences) },
       third: { checked: thirdChecked, percentage: percentage(thirdChecked, totalSentences) }
     },
-    contributors
+    recentModifiedRows: buildRecentModifiedRows(rows)
   };
+}
+
+function buildRecentModifiedRows(rows: NocoDbRecord[]): RecentModifiedRow[] {
+  return rows
+    .map((row) => ({
+      row,
+      modifiedAt: readString(row['Last modified time']) || readString(row['UpdatedAt']) || readString(row['Created time'])
+    }))
+    .filter((entry): entry is { row: NocoDbRecord; modifiedAt: string } => Boolean(entry.modifiedAt))
+    .sort((a, b) => Date.parse(b.modifiedAt) - Date.parse(a.modifiedAt))
+    .slice(0, 20)
+    .map(({ row, modifiedAt }) => ({
+      id: readString(row['Id']) || 'Unknown',
+      modifiedBy: readString(row['Last modified by']) || 'Unknown',
+      modifiedAt,
+      reviews: {
+        first: isChecked(row[config.firstReviewField]),
+        second: isChecked(row[config.secondReviewField]),
+        third: isChecked(row[config.thirdReviewField])
+      }
+    }));
 }
 
 function isChecked(value: unknown): boolean {
@@ -160,23 +160,16 @@ function isChecked(value: unknown): boolean {
   return false;
 }
 
-function normalizeContributorValue(value: unknown): string[] {
+function readString(value: unknown): string {
   if (typeof value === 'string') {
-    const name = value.trim();
-    return name ? [name] : [];
+    return value.trim();
   }
 
-  if (Array.isArray(value)) {
-    return value.flatMap((item) => normalizeContributorValue(item));
+  if (typeof value === 'number') {
+    return String(value);
   }
 
-  if (value && typeof value === 'object') {
-    const record = value as Record<string, unknown>;
-    const candidate = record['displayValue'] || record['title'] || record['name'] || record['email'];
-    return typeof candidate === 'string' && candidate.trim() ? [candidate.trim()] : [];
-  }
-
-  return [];
+  return '';
 }
 
 function percentage(count: number, total: number): number {

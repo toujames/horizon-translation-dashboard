@@ -39,7 +39,7 @@ The workflow in `.github/workflows/pages.yml`:
 - fetches all NoCoDB records from `/api/v2/tables/{tableId}/records`
 - filters with `where=(Source,eq,gemini)`
 - handles limit/offset pagination
-- counts contributors from the hardcoded `Last modified by` field
+- includes the 20 most recently modified Gemini rows by row ID, modifier, timestamp, and review status
 - writes only summarized data to `dashboard-stats.json`
 - builds with `ng build --configuration production --base-href /horizon-translation-dashboard/`
 - deploys `dist/dashboard/browser` to GitHub Pages
@@ -81,19 +81,23 @@ npm run dashboard:build:pages
   "generatedAt": "2026-05-16T20:00:00.000Z",
   "source": "gemini",
   "totalSentences": 1200,
-  "uniqueContributorCount": 8,
   "reviews": {
     "first": { "checked": 980, "percentage": 81.7 },
     "second": { "checked": 630, "percentage": 52.5 },
     "third": { "checked": 240, "percentage": 20 }
   },
-  "contributors": [
-    { "name": "Example Reviewer", "count": 320, "percentage": 26.7 }
+  "recentModifiedRows": [
+    {
+      "id": "123",
+      "modifiedBy": "reviewer@example.com",
+      "modifiedAt": "2026-05-16T20:00:00.000Z",
+      "reviews": { "first": true, "second": false, "third": false }
+    }
   ]
 }
 ```
 
-No raw sentence text, notes, IDs, or API tokens are written to the JSON file.
+No raw sentence text, notes, or API tokens are written to the JSON file.
 
 ## Optional Cloudflare Worker
 
