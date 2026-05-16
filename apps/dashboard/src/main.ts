@@ -1,10 +1,18 @@
 import { DatePipe, DecimalPipe } from '@angular/common';
-import { HttpClient, provideHttpClient } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, signal } from '@angular/core';
 import { bootstrapApplication } from '@angular/platform-browser';
 import { catchError, interval, of, startWith, switchMap, tap } from 'rxjs';
 
 import { environment } from './environments/environment';
+
+type NocoDbRecord = Record<string, unknown>;
+
+interface NocoDbListResponse {
+  list?: NocoDbRecord[];
+  pageInfo?: {
+    isLastPage?: boolean;
+  };
+}
 
 interface ReviewStat {
   checked: number;
@@ -52,10 +60,6 @@ interface DashboardStats {
   assignments: AssignmentUserSummary[];
 }
 
-interface RuntimeConfig {
-  statsUrl?: string;
-}
-
 const emptyStats: DashboardStats = {
   generatedAt: '',
   source: 'gemini',
@@ -68,6 +72,16 @@ const emptyStats: DashboardStats = {
   recentModifiedRows: [],
   assignments: []
 };
+
+const nocoDbBaseUrl = 'https://nocodb.horizon.kukiinpi.us';
+const sentenceTableId = 'mf28g2tn6zzdo3e';
+const assignmentsTableId = 'mhub16ztknqh5x6';
+const pageSize = 1000;
+const sourceField = 'Source';
+const sourceValue = 'gemini';
+const firstReviewField = '1st Review';
+const secondReviewField = '2nd Review';
+const thirdReviewField = '3rd Review';
 
 @Component({
   selector: 'app-root',
@@ -126,7 +140,6 @@ const emptyStats: DashboardStats = {
           </div>
           <span class="metric-footnote">{{ stats().reviews.third.percentage | number:'1.0-1' }}% checked</span>
         </article>
-
       </section>
 
       @if (hasAssignments()) {
@@ -203,19 +216,14 @@ const emptyStats: DashboardStats = {
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 class AppComponent {
-  private readonly http = inject(HttpClient);
-
   protected readonly stats = signal<DashboardStats>(emptyStats);
   protected readonly loading = signal(false);
   protected readonly errorMessage = signal('');
   protected readonly lastUpdated = signal<Date | null>(null);
-  protected readonly statsUrl = signal(environment.statsUrl);
   protected readonly hasAssignments = computed(() => this.stats().assignments.length > 0);
   protected readonly hasRecentModifiedRows = computed(() => this.stats().recentModifiedRows.length > 0);
 
   constructor() {
-    void this.loadRuntimeConfig();
-
     interval(environment.refreshMs)
       .pipe(
         startWith(0),
@@ -224,45 +232,214 @@ class AppComponent {
           this.errorMessage.set('');
         }),
         switchMap(() =>
-          this.http.get<DashboardStats>(this.statsUrl(), {
-            headers: {
-              'cache-control': 'no-cache'
-            },
-            params: {
-              t: Date.now()
-            }
-          }).pipe(
-            catchError((error: unknown) => {
-              this.errorMessage.set(error instanceof Error ? error.message : 'Dashboard data could not be loaded.');
-              return of(null);
-            })
-          )
-        )
+          loadDashboardStats().catch((error: unknown) => {
+            const message = error instanceof Error ? error.message : 'Dashboard data could not be loaded.';
+            this.errorMessage.set(`${message} Showing last generated snapshot.`);
+            return loadStaticDashboardStats();
+          })
+        ),
+        catchError((error: unknown) => {
+          const message = error instanceof Error ? error.message : 'Dashboard data could not be loaded.';
+          this.errorMessage.set(message);
+          return of(null);
+        })
       )
       .subscribe((stats) => {
         if (stats) {
           this.stats.set(stats);
-          this.lastUpdated.set(stats.generatedAt ? new Date(stats.generatedAt) : null);
+          this.lastUpdated.set(new Date(stats.generatedAt));
         }
         this.loading.set(false);
       });
   }
-
-  private async loadRuntimeConfig(): Promise<void> {
-    try {
-      const config = await fetch(`runtime-config.json?t=${Date.now()}`, {
-        cache: 'no-store'
-      }).then((response) => (response.ok ? response.json() as Promise<RuntimeConfig> : null));
-
-      if (config?.statsUrl) {
-        this.statsUrl.set(config.statsUrl);
-      }
-    } catch {
-      this.statsUrl.set(environment.statsUrl);
-    }
-  }
 }
 
-bootstrapApplication(AppComponent, {
-  providers: [provideHttpClient()]
-}).catch((error: unknown) => console.error(error));
+async function loadDashboardStats(): Promise<DashboardStats> {
+  const rows = await fetchAllRows(sentenceTableId, `(${sourceField},eq,${sourceValue})`);
+  const assignmentRows = await fetchAllRows(assignmentsTableId);
+  const totalSentences = rows.length;
+  const firstChecked = rows.filter((row) => isChecked(row[firstReviewField])).length;
+  const secondChecked = rows.filter((row) => isChecked(row[secondReviewField])).length;
+  const thirdChecked = rows.filter((row) => isChecked(row[thirdReviewField])).length;
+
+  return {
+    generatedAt: new Date().toISOString(),
+    source: sourceValue,
+    totalSentences,
+    reviews: {
+      first: { checked: firstChecked, percentage: percentage(firstChecked, totalSentences) },
+      second: { checked: secondChecked, percentage: percentage(secondChecked, totalSentences) },
+      third: { checked: thirdChecked, percentage: percentage(thirdChecked, totalSentences) }
+    },
+    recentModifiedRows: buildRecentModifiedRows(rows),
+    assignments: buildAssignments(assignmentRows)
+  };
+}
+
+async function loadStaticDashboardStats(): Promise<DashboardStats | null> {
+  const response = await fetch(`dashboard-stats.json?t=${Date.now()}`, {
+    cache: 'no-store'
+  });
+
+  if (!response.ok) {
+    return null;
+  }
+
+  return (await response.json()) as DashboardStats;
+}
+
+async function fetchAllRows(tableId: string, where?: string): Promise<NocoDbRecord[]> {
+  const rows: NocoDbRecord[] = [];
+  let offset = 0;
+
+  while (true) {
+    const page = await fetchPage(tableId, offset, where);
+    const list = Array.isArray(page.list) ? page.list : [];
+    rows.push(...list);
+
+    if (page.pageInfo?.isLastPage || list.length < pageSize) {
+      break;
+    }
+
+    offset += pageSize;
+  }
+
+  return rows;
+}
+
+async function fetchPage(tableId: string, offset: number, where?: string): Promise<NocoDbListResponse> {
+  const url = new URL(`/api/v2/tables/${tableId}/records`, nocoDbBaseUrl);
+  url.searchParams.set('limit', String(pageSize));
+  url.searchParams.set('offset', String(offset));
+
+  if (where) {
+    url.searchParams.set('where', where);
+  }
+
+  const response = await fetch(url, {
+    headers: {
+      Accept: 'application/json'
+    },
+    cache: 'no-store'
+  });
+
+  if (!response.ok) {
+    throw new Error(`NoCoDB direct request failed (${response.status}). The table may require auth or CORS may be blocked.`);
+  }
+
+  return (await response.json()) as NocoDbListResponse;
+}
+
+function buildAssignments(rows: NocoDbRecord[]): AssignmentUserSummary[] {
+  const grouped = new Map<string, AssignmentItem[]>();
+
+  for (const row of rows) {
+    const assignee = readFirstString(row, ['Assigned To', 'Assignee', 'User', 'Reviewer', 'Name', 'Email']);
+
+    if (!assignee || assignee.toLowerCase() === 'null') {
+      continue;
+    }
+
+    const item: AssignmentItem = {
+      id: readString(row['Id']),
+      assignedSentences: readFirstString(row, ['Assigned Sentences', 'Assigned Sentence', 'Sentence Range']),
+      thadouSentence: readFirstString(row, ['Thadou Sentence', 'Sentence']),
+      englishSentence: readFirstString(row, ['English Sentence', 'Translation']),
+      status: readFirstString(row, ['Status', 'Progress', 'State']) || 'Assigned',
+      dueDate: readFirstString(row, ['Due Date', 'Due', 'Deadline'])
+    };
+
+    grouped.set(assignee, [...(grouped.get(assignee) || []), item]);
+  }
+
+  return [...grouped.entries()]
+    .map(([assignee, assignments]) => ({
+      assignee,
+      total: assignments.length,
+      assignments: assignments.slice(0, 12)
+    }))
+    .sort((a, b) => b.total - a.total || a.assignee.localeCompare(b.assignee));
+}
+
+function buildRecentModifiedRows(rows: NocoDbRecord[]): RecentModifiedRow[] {
+  return rows
+    .map((row) => ({
+      row,
+      modifiedAt: readString(row['Last modified time']) || readString(row['UpdatedAt'])
+    }))
+    .filter((entry): entry is { row: NocoDbRecord; modifiedAt: string } => Boolean(entry.modifiedAt))
+    .sort((a, b) => Date.parse(b.modifiedAt) - Date.parse(a.modifiedAt))
+    .slice(0, 20)
+    .map(({ row, modifiedAt }) => ({
+      id: readString(row['Id']),
+      thadouSentence: readString(row['Thadou Sentence']),
+      englishSentence: readString(row['English Sentence']),
+      modifiedBy: readFirstString(row, ['Last modified by', 'Last Modified By', 'Updated by', 'UpdatedBy']) || 'No modifier recorded',
+      modifiedAt,
+      reviews: {
+        first: isChecked(row[firstReviewField]),
+        second: isChecked(row[secondReviewField]),
+        third: isChecked(row[thirdReviewField])
+      }
+    }));
+}
+
+function isChecked(value: unknown): boolean {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  if (typeof value === 'number') {
+    return value > 0;
+  }
+
+  if (typeof value === 'string') {
+    return ['true', 'yes', 'checked', '1', 'complete', 'completed'].includes(value.trim().toLowerCase());
+  }
+
+  return false;
+}
+
+function readString(value: unknown): string {
+  if (typeof value === 'string') {
+    return value.trim();
+  }
+
+  if (typeof value === 'number') {
+    return String(value);
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => readString(item)).filter(Boolean).join(', ');
+  }
+
+  if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    return (
+      readString(record['displayValue']) ||
+      readString(record['name']) ||
+      readString(record['email']) ||
+      readString(record['title'])
+    );
+  }
+
+  return '';
+}
+
+function readFirstString(row: NocoDbRecord, keys: string[]): string {
+  for (const key of keys) {
+    const value = readString(row[key]);
+
+    if (value) {
+      return value;
+    }
+  }
+
+  return '';
+}
+
+function percentage(count: number, total: number): number {
+  return total === 0 ? 0 : Number(((count / total) * 100).toFixed(1));
+}
+
+bootstrapApplication(AppComponent).catch((error: unknown) => console.error(error));

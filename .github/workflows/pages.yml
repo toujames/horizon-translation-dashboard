@@ -45,14 +45,6 @@ jobs:
           NOCODB_SECOND_REVIEW_FIELD: ${{ secrets.NOCODB_SECOND_REVIEW_FIELD }}
           NOCODB_THIRD_REVIEW_FIELD: ${{ secrets.NOCODB_THIRD_REVIEW_FIELD }}
 
-      - name: Configure live dashboard endpoint
-        run: |
-          if [ -n "$DASHBOARD_STATS_URL" ]; then
-            printf '{\n  "statsUrl": "%s"\n}\n' "$DASHBOARD_STATS_URL" > apps/dashboard/public/runtime-config.json
-          fi
-        env:
-          DASHBOARD_STATS_URL: ${{ secrets.DASHBOARD_STATS_URL }}
-
       - name: Build Angular dashboard
         run: npx ng build --configuration production --base-href /horizon-translation-dashboard/
 
