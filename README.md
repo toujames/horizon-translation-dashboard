@@ -2,12 +2,13 @@
 
 Read-only GitHub Pages dashboard for tracking Gemini-sourced translation sentence review progress.
 
-The GitHub Pages dashboard fetches NoCoDB directly from the browser every 60 seconds without an API token. This requires the self-hosted NoCoDB endpoints to allow unauthenticated browser reads and CORS for the dashboard origin. The Angular app never receives the NoCoDB API token.
+The GitHub Pages dashboard fetches live data every 60 seconds from a Cloudflare Worker. The Worker calls NoCoDB with the API token stored as a Cloudflare Worker secret, so the Angular app never receives the NoCoDB API token.
 
 ## Project Structure
 
 - `apps/dashboard` - Angular standalone dashboard app
 - `apps/dashboard/public/dashboard-stats.json` - fallback placeholder JSON
+- `apps/dashboard/public/runtime-config.json` - runtime endpoint config
 - `scripts/generate-dashboard-stats.ts` - GitHub Actions data generator
 - `.github/workflows/pages.yml` - scheduled GitHub Pages build and deploy
 - `worker` - optional phase 2 Cloudflare Worker API
@@ -42,6 +43,7 @@ The workflow in `.github/workflows/pages.yml`:
 - fetches hardcoded assignment table `mhub16ztknqh5x6`
 - includes the 20 most recently modified Gemini rows with sentence text, modifier, timestamp, and review status
 - writes fallback summarized data to `dashboard-stats.json`
+- writes `runtime-config.json` with `DASHBOARD_STATS_URL` when that secret is configured
 - builds with `ng build --configuration production --base-href /horizon-translation-dashboard/`
 - deploys `dist/dashboard/browser` to GitHub Pages
 
@@ -120,10 +122,20 @@ Notes and API tokens are not written to the JSON file.
 
 ## Optional Cloudflare Worker
 
-The `worker` folder is kept as an optional backend/proxy. GitHub Repository Secrets are available only to GitHub Actions; they are not available inside Cloudflare Workers. If the Worker is used later, set Cloudflare Worker secrets and variables separately, especially:
+The `worker` folder serves live dashboard data from NoCoDB without exposing the token to the browser. GitHub Repository Secrets are available only to GitHub Actions; they are not available inside Cloudflare Workers. Set Cloudflare Worker secrets and variables separately, especially:
 
 ```bash
 npx wrangler secret put NOCODB_API_TOKEN --config worker/wrangler.toml
 ```
 
-The current GitHub Pages dashboard does not require the Worker.
+Then deploy:
+
+```bash
+npm run worker:deploy
+```
+
+Copy the deployed `/api/dashboard-stats` URL into the GitHub Repository Secret:
+
+```text
+DASHBOARD_STATS_URL
+```
