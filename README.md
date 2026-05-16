@@ -34,7 +34,7 @@ Only `NOCODB_API_TOKEN` is sensitive, but the workflow reads all configuration f
 The workflow in `.github/workflows/pages.yml`:
 
 - runs on pushes to `main`
-- runs every 15 minutes
+- runs every 5 minutes
 - supports manual `workflow_dispatch`
 - fetches all NoCoDB records from `/api/v2/tables/{tableId}/records`
 - filters with `where=(Source,eq,gemini)`
