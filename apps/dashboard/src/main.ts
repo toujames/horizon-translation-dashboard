@@ -24,6 +24,21 @@ interface RecentModifiedRow {
   };
 }
 
+interface AssignmentUserSummary {
+  assignee: string;
+  total: number;
+  assignments: AssignmentItem[];
+}
+
+interface AssignmentItem {
+  id: string;
+  assignedSentences: string;
+  thadouSentence: string;
+  englishSentence: string;
+  status: string;
+  dueDate: string;
+}
+
 interface DashboardStats {
   generatedAt: string;
   source: string;
@@ -34,6 +49,7 @@ interface DashboardStats {
     third: ReviewStat;
   };
   recentModifiedRows: RecentModifiedRow[];
+  assignments: AssignmentUserSummary[];
 }
 
 const emptyStats: DashboardStats = {
@@ -45,7 +61,8 @@ const emptyStats: DashboardStats = {
     second: { checked: 0, percentage: 0 },
     third: { checked: 0, percentage: 0 }
   },
-  recentModifiedRows: []
+  recentModifiedRows: [],
+  assignments: []
 };
 
 @Component({
@@ -108,6 +125,43 @@ const emptyStats: DashboardStats = {
 
       </section>
 
+      @if (hasAssignments()) {
+        <section class="assignments-section">
+          <div class="section-heading">
+            <h2>Assignments</h2>
+            <span>{{ stats().assignments.length | number }} users</span>
+          </div>
+
+          <div class="assignment-grid">
+            @for (group of stats().assignments; track group.assignee) {
+              <article class="assignment-card">
+                <header>
+                  <strong>{{ group.assignee }}</strong>
+                  <span>{{ group.total | number }} assigned</span>
+                </header>
+
+                <div class="assignment-list">
+                  @for (assignment of group.assignments; track assignment.id) {
+                    <div class="assignment-item">
+                      <strong>{{ assignment.assignedSentences || assignment.thadouSentence || assignment.englishSentence || ('Assignment #' + assignment.id) }}</strong>
+                      @if (assignment.thadouSentence && assignment.englishSentence) {
+                        <span>{{ assignment.englishSentence }}</span>
+                      }
+                      <small>
+                        {{ assignment.status }}
+                        @if (assignment.dueDate) {
+                          <ng-container> - Due {{ assignment.dueDate | date:'shortDate' }}</ng-container>
+                        }
+                      </small>
+                    </div>
+                  }
+                </div>
+              </article>
+            }
+          </div>
+        </section>
+      }
+
       @if (hasRecentModifiedRows()) {
         <section class="activity-section">
           <div class="section-heading">
@@ -151,6 +205,7 @@ class AppComponent {
   protected readonly loading = signal(false);
   protected readonly errorMessage = signal('');
   protected readonly lastUpdated = signal<Date | null>(null);
+  protected readonly hasAssignments = computed(() => this.stats().assignments.length > 0);
   protected readonly hasRecentModifiedRows = computed(() => this.stats().recentModifiedRows.length > 0);
 
   constructor() {

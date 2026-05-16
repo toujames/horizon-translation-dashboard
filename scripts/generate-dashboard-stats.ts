@@ -29,6 +29,21 @@ interface RecentModifiedRow {
   };
 }
 
+interface AssignmentUserSummary {
+  assignee: string;
+  total: number;
+  assignments: AssignmentItem[];
+}
+
+interface AssignmentItem {
+  id: string;
+  assignedSentences: string;
+  thadouSentence: string;
+  englishSentence: string;
+  status: string;
+  dueDate: string;
+}
+
 interface DashboardStats {
   generatedAt: string;
   source: string;
@@ -39,10 +54,12 @@ interface DashboardStats {
     third: ReviewStat;
   };
   recentModifiedRows: RecentModifiedRow[];
+  assignments: AssignmentUserSummary[];
 }
 
 const outputPath = resolve('apps/dashboard/public/dashboard-stats.json');
 const pageSize = 1000;
+const assignmentsTableId = 'mhub16ztknqh5x6';
 
 loadLocalEnvFiles();
 
@@ -57,20 +74,21 @@ const config = {
   thirdReviewField: requireEnv('NOCODB_THIRD_REVIEW_FIELD')
 };
 
-const rows = await fetchAllRows();
-const stats = buildStats(rows);
+const rows = await fetchAllRows(config.tableId, `(${config.sourceField},eq,${config.sourceValue})`);
+const assignmentRows = await fetchAllRows(assignmentsTableId);
+const stats = buildStats(rows, assignmentRows);
 
 await mkdir(dirname(outputPath), { recursive: true });
 await writeFile(outputPath, `${JSON.stringify(stats, null, 2)}\n`, 'utf8');
 
 console.log(`Wrote ${outputPath} with ${stats.totalSentences} summarized Gemini rows.`);
 
-async function fetchAllRows(): Promise<NocoDbRecord[]> {
+async function fetchAllRows(tableId: string, where?: string): Promise<NocoDbRecord[]> {
   const rows: NocoDbRecord[] = [];
   let offset = 0;
 
   while (true) {
-    const page = await fetchPage(offset);
+    const page = await fetchPage(tableId, offset, where);
     const list = Array.isArray(page.list) ? page.list : [];
     rows.push(...list);
 
@@ -84,12 +102,15 @@ async function fetchAllRows(): Promise<NocoDbRecord[]> {
   return rows;
 }
 
-async function fetchPage(offset: number): Promise<NocoDbListResponse> {
+async function fetchPage(tableId: string, offset: number, where?: string): Promise<NocoDbListResponse> {
   const baseUrl = config.baseUrl.replace(/\/+$/, '');
-  const url = new URL(`/api/v2/tables/${config.tableId}/records`, baseUrl);
+  const url = new URL(`/api/v2/tables/${tableId}/records`, baseUrl);
   url.searchParams.set('limit', String(pageSize));
   url.searchParams.set('offset', String(offset));
-  url.searchParams.set('where', `(${config.sourceField},eq,${config.sourceValue})`);
+
+  if (where) {
+    url.searchParams.set('where', where);
+  }
 
   const response = await fetch(url, {
     headers: {
@@ -106,7 +127,7 @@ async function fetchPage(offset: number): Promise<NocoDbListResponse> {
   return (await response.json()) as NocoDbListResponse;
 }
 
-function buildStats(rows: NocoDbRecord[]): DashboardStats {
+function buildStats(rows: NocoDbRecord[], assignmentRows: NocoDbRecord[]): DashboardStats {
   const totalSentences = rows.length;
   const firstChecked = rows.filter((row) => isChecked(row[config.firstReviewField])).length;
   const secondChecked = rows.filter((row) => isChecked(row[config.secondReviewField])).length;
@@ -121,8 +142,35 @@ function buildStats(rows: NocoDbRecord[]): DashboardStats {
       second: { checked: secondChecked, percentage: percentage(secondChecked, totalSentences) },
       third: { checked: thirdChecked, percentage: percentage(thirdChecked, totalSentences) }
     },
-    recentModifiedRows: buildRecentModifiedRows(rows)
+    recentModifiedRows: buildRecentModifiedRows(rows),
+    assignments: buildAssignments(assignmentRows)
   };
+}
+
+function buildAssignments(rows: NocoDbRecord[]): AssignmentUserSummary[] {
+  const grouped = new Map<string, AssignmentItem[]>();
+
+  for (const row of rows) {
+    const assignee = readFirstString(row, ['Assigned To', 'Assignee', 'User', 'Reviewer', 'Name', 'Email']) || 'Unassigned';
+    const item: AssignmentItem = {
+      id: readString(row['Id']),
+      assignedSentences: readFirstString(row, ['Assigned Sentences', 'Assigned Sentence', 'Sentence Range']),
+      thadouSentence: readFirstString(row, ['Thadou Sentence', 'Sentence']),
+      englishSentence: readFirstString(row, ['English Sentence', 'Translation']),
+      status: readFirstString(row, ['Status', 'Progress', 'State']) || 'Assigned',
+      dueDate: readFirstString(row, ['Due Date', 'Due', 'Deadline'])
+    };
+
+    grouped.set(assignee, [...(grouped.get(assignee) || []), item]);
+  }
+
+  return [...grouped.entries()]
+    .map(([assignee, assignments]) => ({
+      assignee,
+      total: assignments.length,
+      assignments: assignments.slice(0, 12)
+    }))
+    .sort((a, b) => b.total - a.total || a.assignee.localeCompare(b.assignee));
 }
 
 function buildRecentModifiedRows(rows: NocoDbRecord[]): RecentModifiedRow[] {

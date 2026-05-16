@@ -39,6 +39,7 @@ The workflow in `.github/workflows/pages.yml`:
 - fetches all NoCoDB records from `/api/v2/tables/{tableId}/records`
 - filters with `where=(Source,eq,gemini)`
 - handles limit/offset pagination
+- fetches hardcoded assignment table `mhub16ztknqh5x6`
 - includes the 20 most recently modified Gemini rows with sentence text, modifier, timestamp, and review status
 - writes only summarized data to `dashboard-stats.json`
 - builds with `ng build --configuration production --base-href /horizon-translation-dashboard/`
@@ -86,6 +87,22 @@ npm run dashboard:build:pages
     "second": { "checked": 630, "percentage": 52.5 },
     "third": { "checked": 240, "percentage": 20 }
   },
+  "assignments": [
+    {
+      "assignee": "reviewer@example.com",
+      "total": 3,
+      "assignments": [
+        {
+          "id": "456",
+          "assignedSentences": "12701-12800",
+          "thadouSentence": "Assigned Thadou sentence",
+          "englishSentence": "Assigned English sentence",
+          "status": "Assigned",
+          "dueDate": ""
+        }
+      ]
+    }
+  ],
   "recentModifiedRows": [
     {
       "id": "123",
